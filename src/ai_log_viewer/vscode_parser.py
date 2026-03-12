@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -25,7 +25,7 @@ def _ms_to_iso(ms: int | float) -> str:
     if not ms:
         return ""
     try:
-        return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).isoformat()
+        return datetime.fromtimestamp(ms / 1000, tz=UTC).isoformat()
     except (OSError, ValueError, OverflowError):
         return ""
 
