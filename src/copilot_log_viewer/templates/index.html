@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Copilot Session Log Viewer</title>
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');</script>
+<title>AI Session Log Viewer</title>
 <style>
-:root {
+/* Dark theme (default) */
+:root, [data-theme="dark"] {
   --bg: #0d1117;
   --bg-secondary: #161b22;
   --bg-tertiary: #21262d;
@@ -15,11 +17,36 @@
   --accent: #58a6ff;
   --accent-subtle: #1f6feb33;
   --green: #3fb950;
+  --green-subtle: #3fb95022;
   --orange: #d29922;
+  --orange-subtle: #d2992222;
   --red: #f85149;
+  --red-subtle: #f8514922;
   --purple: #bc8cff;
+  --purple-subtle: #bc8cff22;
   --radius: 8px;
   --shadow: 0 3px 12px rgba(0,0,0,0.4);
+}
+/* Light theme */
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #eaeef2;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-secondary: #656d76;
+  --accent: #0969da;
+  --accent-subtle: #0969da1a;
+  --green: #1a7f37;
+  --green-subtle: #1a7f371a;
+  --orange: #9a6700;
+  --orange-subtle: #9a67001a;
+  --red: #cf222e;
+  --red-subtle: #cf222e1a;
+  --purple: #8250df;
+  --purple-subtle: #8250df1a;
+  --radius: 8px;
+  --shadow: 0 3px 12px rgba(0,0,0,0.12);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
@@ -46,16 +73,104 @@ header .container { display: flex; align-items: center; gap: 16px; }
 }
 header h1 { font-size: 22px; font-weight: 600; }
 header p { color: var(--text-secondary); font-size: 14px; }
-.dir-badge {
+.theme-toggle {
+  margin-left: auto;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  border-radius: 20px;
+  padding: 6px 12px;
+  cursor: pointer;
   color: var(--text-secondary);
-  margin-left: auto;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.15s;
+  flex-shrink: 0;
 }
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Summary stats row */
+.stats-row {
+  display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.stat-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  flex: 1;
+  min-width: 180px;
+}
+.stat-card .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+.stat-card .stat-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-card .stat-detail {
+  font-size: 11px; color: var(--text-secondary);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  margin-top: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Source filters */
+.filters {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 20px;
+}
+.filter-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.filter-btn:hover, .filter-btn.active {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.filter-btn.active-claude {
+  background: var(--purple-subtle);
+  border-color: var(--purple);
+  color: var(--purple);
+}
+.filter-btn.active-copilot {
+  background: var(--orange-subtle);
+  border-color: var(--orange);
+  color: var(--orange);
+}
+.filter-btn .count {
+  display: inline-block;
+  background: var(--bg-tertiary);
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+/* Search */
+.search-bar {
+  margin-bottom: 20px;
+}
+.search-bar input {
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-bar input:focus {
+  border-color: var(--accent);
+}
+.search-bar input::placeholder { color: var(--text-secondary); }
+
+/* Sessions grid */
 .sessions-grid { display: flex; flex-direction: column; gap: 12px; }
 .session-card {
   background: var(--bg-secondary);
@@ -89,6 +204,19 @@ header p { color: var(--text-secondary); font-size: 14px; }
 }
 .badge-repo { background: var(--accent-subtle); color: var(--accent); }
 .badge-branch { background: #3fb95022; color: var(--green); }
+.badge-source-claude { background: var(--purple-subtle); color: var(--purple); }
+.badge-source-copilot { background: var(--orange-subtle); color: var(--orange); }
+.badge-model {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+}
+.no-results {
+  text-align: center; padding: 40px 20px;
+  color: var(--text-secondary);
+  display: none;
+}
 .empty-state {
   text-align: center; padding: 80px 20px;
   color: var(--text-secondary);
@@ -99,21 +227,60 @@ header p { color: var(--text-secondary); font-size: 14px; }
 <body>
 <header>
   <div class="container">
-    <div class="logo">C</div>
+    <div class="logo">A</div>
     <div>
-      <h1>Copilot Session Log Viewer</h1>
-      <p>Browse and understand GitHub Copilot agent session logs</p>
+      <h1>AI Session Log Viewer</h1>
+      <p>Browse and understand AI agent session logs</p>
     </div>
-    <span class="dir-badge">{{ log_dir }}</span>
+    <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle" title="Toggle light/dark mode"></button>
   </div>
 </header>
 <div class="container">
   {% if sessions %}
-  <div class="sessions-grid">
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-value">{{ sessions|length }}</div>
+      <div class="stat-label">Total Sessions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--purple);">{{ claude_count }}</div>
+      <div class="stat-label">Claude Code</div>
+      <div class="stat-detail" title="{{ claude_dir }}">{{ claude_dir }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--orange);">{{ copilot_count }}</div>
+      <div class="stat-label">GitHub Copilot</div>
+      <div class="stat-detail" title="{{ copilot_dir }}">{{ copilot_dir }}</div>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="search" placeholder="Search sessions by name, branch, directory, model..." autocomplete="off">
+  </div>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="filterSessions('all', this)">All<span class="count">{{ sessions|length }}</span></button>
+    <button class="filter-btn" onclick="filterSessions('claude', this)" data-active-class="active-claude">Claude Code<span class="count">{{ claude_count }}</span></button>
+    <button class="filter-btn" onclick="filterSessions('copilot', this)" data-active-class="active-copilot">Copilot<span class="count">{{ copilot_count }}</span></button>
+  </div>
+
+  <div class="sessions-grid" id="sessions-grid">
     {% for s in sessions %}
-    <a class="session-card" href="/session/{{ s.id }}">
+    <a class="session-card" href="/session/{{ s.id }}" data-source="{{ s.source }}"
+       data-search="{{ (s.summary or s.id)|lower }} {{ (s.branch or '')|lower }} {{ (s.cwd or '')|lower }} {{ (s.repository or '')|lower }} {{ (s.model or '')|lower }} {{ (s.slug or '')|lower }}">
       <h2>{{ s.summary or s.id }}</h2>
       <div class="session-meta">
+        {% if s.source == 'claude' %}
+        <span class="badge badge-source-claude">Claude Code</span>
+        {% else %}
+        <span class="badge badge-source-copilot">Copilot</span>
+        {% endif %}
+        {% if s.slug %}
+        <span class="badge badge-model">{{ s.slug }}</span>
+        {% endif %}
+        {% if s.model %}
+        <span class="badge badge-model">{{ s.model }}</span>
+        {% endif %}
         {% if s.repository %}
         <span class="badge badge-repo">{{ s.repository }}</span>
         {% endif %}
@@ -130,12 +297,69 @@ header p { color: var(--text-secondary); font-size: 14px; }
     </a>
     {% endfor %}
   </div>
+  <div class="no-results" id="no-results">
+    <h2>No matching sessions</h2>
+    <p>Try a different search term or filter.</p>
+  </div>
   {% else %}
   <div class="empty-state">
     <h2>No sessions found</h2>
-    <p>Point the viewer at a directory containing Copilot session log folders.</p>
+    <p>Point the viewer at directories containing Copilot or Claude Code session logs.</p>
   </div>
   {% endif %}
 </div>
+
+<script>
+/* Theme toggle */
+(function() {
+  var saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  var btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = saved === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+})();
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'dark';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  var btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = next === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+}
+
+var currentFilter = 'all';
+var currentSearch = '';
+
+function applyFilters() {
+  var cards = document.querySelectorAll('#sessions-grid .session-card');
+  var visible = 0;
+  cards.forEach(function(card) {
+    var sourceMatch = currentFilter === 'all' || card.dataset.source === currentFilter;
+    var searchMatch = !currentSearch || card.dataset.search.indexOf(currentSearch) !== -1;
+    var show = sourceMatch && searchMatch;
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  var nr = document.getElementById('no-results');
+  if (nr) nr.style.display = visible === 0 ? '' : 'none';
+}
+
+function filterSessions(source, btn) {
+  document.querySelectorAll('.filter-btn').forEach(function(b) {
+    b.classList.remove('active', 'active-claude', 'active-copilot');
+  });
+  var activeClass = btn.dataset.activeClass || 'active';
+  btn.classList.add(activeClass);
+  currentFilter = source;
+  applyFilters();
+}
+
+var searchInput = document.getElementById('search');
+if (searchInput) {
+  searchInput.addEventListener('input', function() {
+    currentSearch = this.value.toLowerCase().trim();
+    applyFilters();
+  });
+}
+</script>
 </body>
 </html>
