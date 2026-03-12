@@ -7,6 +7,8 @@ import re
 import sys
 from pathlib import Path
 
+from .parser import MAX_RESULT_CHARS
+
 
 def _default_claude_dir() -> Path:
     """Return the platform-default Claude Code projects directory."""
@@ -16,8 +18,6 @@ def _default_claude_dir() -> Path:
         if localappdata:
             return Path(localappdata) / "claude" / "projects"
     return Path.home() / ".claude" / "projects"
-
-from .parser import MAX_RESULT_CHARS
 
 # Matches a complete XML-style tag block: <tag>...</tag> or self-closing <tag .../>
 _XML_BLOCK_RE = re.compile(
@@ -31,12 +31,7 @@ def _split_xml_and_text(content: str) -> tuple[str, str]:
 
     Returns (xml_stripped_text, user_text). Either may be empty.
     """
-    # Remove all complete XML blocks and collect what's left
     remaining = _XML_BLOCK_RE.sub("", content).strip()
-    xml_parts = _XML_BLOCK_RE.findall(content)  # just tag names, but we want the text
-    notification = re.sub(r"<[^>]+>", "", content[:len(content) - len(remaining)].strip()).strip() if xml_parts else ""
-    # Actually: simpler approach — strip all XML blocks, the remainder is user text.
-    # The notification is the XML content with tags stripped.
     xml_text = ""
     for m in _XML_BLOCK_RE.finditer(content):
         stripped = re.sub(r"<[^>]+>", "", m.group()).strip()
@@ -129,16 +124,22 @@ def _first_metadata(jsonl_path: Path) -> dict:
 
 
 def _last_timestamp(jsonl_path: Path) -> str:
-    """Read the last timestamp from a JSONL file efficiently."""
+    """Read the last timestamp from a JSONL file efficiently.
+
+    Reads the last 4 KB first (fast path). If every line in that chunk is
+    truncated / unparseable, falls back to a full forward scan so that large
+    tool-result events don't cause us to miss the real last timestamp.
+    """
     last_ts = ""
-    # Read from end for large files
-    with open(jsonl_path, "rb") as f:
-        f.seek(0, 2)
-        size = f.tell()
-        # Read last 4KB — enough to get the last event
-        read_size = min(size, 4096)
-        f.seek(size - read_size)
-        chunk = f.read().decode("utf-8", errors="replace")
+    try:
+        with open(jsonl_path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            read_size = min(size, 4096)
+            f.seek(size - read_size)
+            chunk = f.read().decode("utf-8", errors="replace")
+    except OSError:
+        return last_ts
 
     for line in reversed(chunk.strip().split("\n")):
         line = line.strip()
@@ -151,6 +152,23 @@ def _last_timestamp(jsonl_path: Path) -> str:
                 return ts
         except json.JSONDecodeError:
             continue
+
+    # Fallback: full forward scan (handles lines longer than 4 KB)
+    try:
+        with open(jsonl_path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    evt = json.loads(line)
+                    ts = evt.get("timestamp", "")
+                    if ts:
+                        last_ts = ts
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        pass
     return last_ts
 
 
@@ -307,14 +325,6 @@ def build_conversation(events: list[dict]) -> list[dict]:
 
     # Build a set of requestIds we've emitted, to avoid duplication
     emitted_requests: set[str] = set()
-
-    # Track tool_use IDs to their tool names for matching tool_results
-    tool_use_names: dict[str, str] = {}
-    for rid in assistant_order:
-        info = merged_assistant[rid]
-        for block in info["blocks"]:
-            if block.get("type") == "tool_use":
-                tool_use_names[block["id"]] = block.get("name", "unknown")
 
     # Now walk events in order to produce conversation items
     for evt in events:

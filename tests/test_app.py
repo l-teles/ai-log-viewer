@@ -29,9 +29,12 @@ def app_with_data(tmp_path: Path):
     )
 
     events = [
-        {"type": "session.start", "data": {"copilotVersion": "1.0.0", "context": {}}, "timestamp": "2026-03-12T10:00:00Z"},
-        {"type": "user.message", "data": {"content": "hello"}, "timestamp": "2026-03-12T10:00:01Z"},
-        {"type": "session.shutdown", "data": {}, "timestamp": "2026-03-12T10:05:00Z"},
+        {"type": "session.start", "data": {"copilotVersion": "1.0.0", "context": {}},
+         "timestamp": "2026-03-12T10:00:00Z"},
+        {"type": "user.message", "data": {"content": "hello"},
+         "timestamp": "2026-03-12T10:00:01Z"},
+        {"type": "session.shutdown", "data": {},
+         "timestamp": "2026-03-12T10:05:00Z"},
     ]
     with open(session_dir / "events.jsonl", "w") as f:
         for evt in events:
@@ -212,9 +215,12 @@ def app_mixed(tmp_path: Path):
         """)
     )
     events_copilot = [
-        {"type": "session.start", "data": {"copilotVersion": "1.0.0", "context": {}}, "timestamp": "2026-03-12T09:00:00Z"},
-        {"type": "user.message", "data": {"content": "copilot msg"}, "timestamp": "2026-03-12T09:00:01Z"},
-        {"type": "session.shutdown", "data": {}, "timestamp": "2026-03-12T09:05:00Z"},
+        {"type": "session.start", "data": {"copilotVersion": "1.0.0", "context": {}},
+         "timestamp": "2026-03-12T09:00:00Z"},
+        {"type": "user.message", "data": {"content": "copilot msg"},
+         "timestamp": "2026-03-12T09:00:01Z"},
+        {"type": "session.shutdown", "data": {},
+         "timestamp": "2026-03-12T09:05:00Z"},
     ]
     _write_jsonl(session_dir / "events.jsonl", events_copilot)
 
@@ -350,7 +356,8 @@ def test_all_three_sources(tmp_path: Path) -> None:
         """)
     )
     _write_jsonl(copilot_dir / "events.jsonl", [
-        {"type": "session.start", "data": {"copilotVersion": "1.0.0", "context": {}}, "timestamp": "2026-03-12T09:00:00Z"},
+        {"type": "session.start", "data": {"copilotVersion": "1.0.0", "context": {}},
+         "timestamp": "2026-03-12T09:00:00Z"},
     ])
 
     # Claude

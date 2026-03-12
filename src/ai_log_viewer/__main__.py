@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 from . import __version__
 from .app import create_app
-from .parser import discover_sessions as copilot_discover, _default_copilot_dir
-from .claude_parser import discover_sessions as claude_discover, _default_claude_dir
-from .vscode_parser import discover_sessions as vscode_discover, _default_vscode_dir
+from .claude_parser import _default_claude_dir
+from .claude_parser import discover_sessions as claude_discover
+from .parser import _default_copilot_dir
+from .parser import discover_sessions as copilot_discover
+from .vscode_parser import _default_vscode_dir
+from .vscode_parser import discover_sessions as vscode_discover
 
 
 def main(argv: list[str] | None = None) -> None:
