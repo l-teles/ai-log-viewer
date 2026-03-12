@@ -36,7 +36,10 @@ def _make_user_event(content, *, ts="2026-03-12T10:00:01Z", session_id="aaaaaaaa
     }
 
 
-def _make_assistant_event(content_blocks, *, ts="2026-03-12T10:00:02Z", request_id="req_001", output_tokens=50, model="claude-opus-4-6", **kw):
+def _make_assistant_event(
+    content_blocks, *, ts="2026-03-12T10:00:02Z", request_id="req_001",
+    output_tokens=50, model="claude-opus-4-6", **kw,
+):
     return {
         "type": "assistant",
         "message": {

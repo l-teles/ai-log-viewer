@@ -8,23 +8,29 @@ import time
 from pathlib import Path
 
 import markdown
-from flask import Flask, render_template, jsonify, abort, request, Response
+from flask import Flask, Response, abort, jsonify, render_template, request
 from markupsafe import Markup
 
+from . import claude_parser, vscode_parser
 from .parser import (
-    discover_sessions as copilot_discover,
-    parse_events as copilot_parse_events,
+    _default_copilot_dir,
+    duration_between,
     parse_snapshots,
     parse_workspace,
-    build_conversation as copilot_build_conversation,
-    compute_stats as copilot_compute_stats,
     ts_display,
-    ts_relative,
-    duration_between,
-    _default_copilot_dir,
 )
-from . import claude_parser
-from . import vscode_parser
+from .parser import (
+    build_conversation as copilot_build_conversation,
+)
+from .parser import (
+    compute_stats as copilot_compute_stats,
+)
+from .parser import (
+    discover_sessions as copilot_discover,
+)
+from .parser import (
+    parse_events as copilot_parse_events,
+)
 
 # ---------------------------------------------------------------------------
 # Validation helpers
@@ -54,14 +60,26 @@ def _validate_backup_hash(backup_hash: str) -> None:
 # Markdown rendering
 # ---------------------------------------------------------------------------
 
+_DANGEROUS_HTML_RE = re.compile(
+    r"<\s*/?\s*(script|iframe|object|embed|form|input|textarea|button|link|meta|base|applet)"
+    r"[^>]*>",
+    re.IGNORECASE,
+)
+_EVENT_HANDLER_RE = re.compile(r"\s+on\w+\s*=", re.IGNORECASE)
+
+
 def md_to_html(text: str) -> str:
     if not text:
         return ""
-    return markdown.markdown(
+    html = markdown.markdown(
         text,
         extensions=["fenced_code", "tables", "codehilite", "nl2br"],
         extension_configs={"codehilite": {"css_class": "codehilite", "guess_lang": False}},
     )
+    # Sanitize: strip dangerous tags and event handler attributes
+    html = _DANGEROUS_HTML_RE.sub("", html)
+    html = _EVENT_HANDLER_RE.sub(" ", html)
+    return html
 
 
 # ---------------------------------------------------------------------------
@@ -137,12 +155,22 @@ def create_app(
 
         index = {}
         for s in all_sessions:
-            index[s["id"]] = s
+            key = f"{s['source']}:{s['id']}"
+            index[key] = s
 
         _cache["sessions"] = all_sessions
         _cache["index"] = index
         _cache["ts"] = now
         return all_sessions, index
+
+    def _lookup_session(session_id: str) -> dict | None:
+        """Look up a session by UUID, checking all source prefixes."""
+        _, idx = _build_session_index()
+        for source in ("claude", "copilot", "vscode"):
+            info = idx.get(f"{source}:{session_id}")
+            if info:
+                return info
+        return None
 
     # -- Security headers (after every response) -----------------------------
     @app.after_request
@@ -184,8 +212,7 @@ def create_app(
     def session_view(session_id: str):
         _validate_session_id(session_id)
 
-        _, session_index = _build_session_index()
-        session_info = session_index.get(session_id)
+        session_info = _lookup_session(session_id)
         if not session_info:
             abort(404)
 
@@ -224,7 +251,6 @@ def create_app(
             snapshots=snapshots,
             source=source,
             ts_display=ts_display,
-            ts_relative=ts_relative,
             duration_between=duration_between,
             md_to_html=md_to_html,
             json=json,
@@ -247,8 +273,7 @@ def create_app(
     def api_events(session_id: str):
         _validate_session_id(session_id)
 
-        _, session_index = _build_session_index()
-        session_info = session_index.get(session_id)
+        session_info = _lookup_session(session_id)
         if not session_info:
             abort(404)
 
@@ -272,7 +297,9 @@ def create_app(
         backup_file = copilot_path / session_id / "rewind-snapshots" / "backups" / backup_hash
         # Resolve and verify the path stays within the log directory.
         resolved = backup_file.resolve()
-        if not str(resolved).startswith(str(copilot_path)):
+        try:
+            resolved.relative_to(copilot_path)
+        except ValueError:
             abort(403)
         if not resolved.is_file():
             abort(404)

@@ -50,7 +50,7 @@ cd ai-log-viewer
 pip install .
 ```
 
-### Install from PyPI (once published)
+### Install from PyPI
 
 ```bash
 pip install ai-log-viewer
@@ -73,11 +73,11 @@ Then open **http://127.0.0.1:5000** in your browser.
 
 ### Default directories
 
-| Source         | Default directory                                      | Override flag    | Env variable      |
-|----------------|-------------------------------------------------------|------------------|--------------------|
-| GitHub Copilot | `~/.copilot/session-state/`                           | `--copilot-dir`  | `COPILOT_LOG_DIR`  |
-| Claude Code    | `~/.claude/projects/`                                 | `--claude-dir`   | `CLAUDE_LOG_DIR`   |
-| VS Code Chat   | `~/Library/Application Support/Code/User/` (macOS)   | `--vscode-dir`   | `VSCODE_LOG_DIR`   |
+| Source         | macOS / Linux default                                 | Windows default                          | Override flag    | Env variable      |
+|----------------|-------------------------------------------------------|------------------------------------------|------------------|--------------------|
+| GitHub Copilot | `~/.copilot/session-state/`                           | `%LOCALAPPDATA%\github-copilot\session-state` | `--copilot-dir`  | `COPILOT_LOG_DIR`  |
+| Claude Code    | `~/.claude/projects/`                                 | `%LOCALAPPDATA%\claude\projects`         | `--claude-dir`   | `CLAUDE_LOG_DIR`   |
+| VS Code Chat   | `~/Library/Application Support/Code/User/` (macOS) / `~/.config/Code/User/` (Linux) | `%APPDATA%\Code\User`  | `--vscode-dir`   | `VSCODE_LOG_DIR`   |
 
 ### Options
 
@@ -179,12 +179,15 @@ pytest
   internet without authentication.
 - **Input validation** — session IDs must be valid UUIDs; backup hashes are validated
   against a strict pattern.
-- **Path-traversal protection** — resolved file paths are verified to stay within the
-  configured log directory.
+- **Path-traversal protection** — resolved file paths are verified via
+  `Path.relative_to()` to stay within the configured log directory.
+- **HTML sanitization** — Markdown output is sanitized to strip dangerous tags
+  (`<script>`, `<iframe>`, etc.) and event handler attributes.
 - **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`,
   `Referrer-Policy`, and `Content-Security-Policy` are set on every response.
 - **No debug in production** — debug mode is off by default and must be explicitly
   enabled via `--debug`.
+- **Dependency monitoring** — Dependabot is configured for automated security updates.
 
 ## License
 

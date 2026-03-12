@@ -16,7 +16,6 @@ from urllib.parse import unquote, urlparse
 
 from .parser import MAX_RESULT_CHARS
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -316,8 +315,6 @@ def build_conversation(events: list[dict]) -> list[dict]:
         result_meta = req.get("result", {}).get("metadata", {})
         tool_call_rounds = result_meta.get("toolCallRounds", [])
         tool_call_results = result_meta.get("toolCallResults", {})
-
-        model = _extract_model(req)
 
         if tool_call_rounds:
             for round_data in tool_call_rounds:

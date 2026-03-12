@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -68,28 +68,9 @@ def ts_display(iso_str) -> str:
     try:
         dt = datetime.fromisoformat(str(iso_str).replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-    except Exception:
+    except (ValueError, TypeError, OverflowError):
         return str(iso_str)
 
-
-def ts_relative(iso_str: str) -> str:
-    """Return a human-friendly relative time string."""
-    if not iso_str:
-        return ""
-    try:
-        dt = datetime.fromisoformat(str(iso_str).replace("Z", "+00:00"))
-        now = datetime.now(timezone.utc)
-        delta = now - dt
-        secs = int(delta.total_seconds())
-        if secs < 60:
-            return "just now"
-        if secs < 3600:
-            return f"{secs // 60}m ago"
-        if secs < 86400:
-            return f"{secs // 3600}h ago"
-        return f"{secs // 86400}d ago"
-    except Exception:
-        return ""
 
 
 def duration_between(start_iso, end_iso) -> str:
@@ -107,7 +88,7 @@ def duration_between(start_iso, end_iso) -> str:
             return f"{m}m {s2}s"
         h, m2 = divmod(m, 60)
         return f"{h}h {m2}m"
-    except Exception:
+    except (ValueError, TypeError, OverflowError):
         return ""
 
 
