@@ -95,48 +95,54 @@ def _read_session_json(path: Path) -> dict | None:
     try:
         if path.suffix == ".jsonl":
             with open(path) as f:
-                state = {}
+                state: dict = {}
                 for line in f:
                     line = line.strip()
                     if not line:
                         continue
-                    wrapper = json.loads(line)
+                    try:
+                        wrapper = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
                     if not isinstance(wrapper, dict):
                         continue
                     kind = wrapper.get("kind")
-                    if kind == 0:
-                        state = wrapper.get("v", {})
-                    elif kind in (1, 2):
-                        keys = wrapper.get("k", [])
-                        value = wrapper.get("v")
-                        if len(keys) == 1:
-                            state[keys[0]] = value
-                        elif len(keys) == 2:
-                            k0, k1 = keys[0], keys[1]
-                            if isinstance(k1, int):
+                    try:
+                        if kind == 0:
+                            state = wrapper.get("v", {})
+                        elif kind in (1, 2):
+                            keys = wrapper.get("k", [])
+                            value = wrapper.get("v")
+                            if len(keys) == 1:
+                                state[keys[0]] = value
+                            elif len(keys) == 2:
+                                k0, k1 = keys[0], keys[1]
+                                if isinstance(k1, int):
+                                    if not isinstance(state.get(k0), list):
+                                        state[k0] = []
+                                    while len(state[k0]) <= k1:
+                                        state[k0].append({})
+                                    state[k0][k1] = value
+                                else:
+                                    if not isinstance(state.get(k0), dict):
+                                        state[k0] = {}
+                                    state[k0][k1] = value
+                            elif len(keys) == 3:
+                                k0, k1, k2 = keys[0], keys[1], keys[2]
                                 if not isinstance(state.get(k0), list):
                                     state[k0] = []
                                 while len(state[k0]) <= k1:
                                     state[k0].append({})
-                                state[k0][k1] = value
-                            else:
-                                if not isinstance(state.get(k0), dict):
-                                    state[k0] = {}
-                                state[k0][k1] = value
-                        elif len(keys) == 3:
-                            k0, k1, k2 = keys[0], keys[1], keys[2]
-                            if not isinstance(state.get(k0), list):
-                                state[k0] = []
-                            while len(state[k0]) <= k1:
-                                state[k0].append({})
-                            if not isinstance(state[k0][k1], dict):
-                                state[k0][k1] = {}
-                            state[k0][k1][k2] = value
+                                if not isinstance(state[k0][k1], dict):
+                                    state[k0][k1] = {}
+                                state[k0][k1][k2] = value
+                    except (TypeError, IndexError, AttributeError, KeyError):
+                        continue
                 return state if state else None
         else:
             with open(path) as f:
                 return json.load(f)
-    except (json.JSONDecodeError, OSError, TypeError, IndexError, AttributeError):
+    except (json.JSONDecodeError, OSError):
         return None
 
 
