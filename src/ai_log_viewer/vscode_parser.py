@@ -76,31 +76,7 @@ def _read_session_json(path: Path) -> dict | None:
                     kind = wrapper.get("kind")
                     if kind == 0:
                         state = wrapper.get("v", {})
-                    elif kind == 1:
-                        keys = wrapper.get("k", [])
-                        value = wrapper.get("v")
-                        if len(keys) == 1:
-                            state[keys[0]] = value
-                        elif len(keys) == 2:
-                            k0, k1 = keys[0], keys[1]
-                            if k0 not in state:
-                                state[k0] = {} if not isinstance(k1, int) else []
-                            if isinstance(k1, int):
-                                while len(state[k0]) <= k1:
-                                    state[k0].append({})
-                                state[k0][k1] = value
-                            else:
-                                state[k0][k1] = value
-                        elif len(keys) == 3:
-                            k0, k1, k2 = keys[0], keys[1], keys[2]
-                            if k0 not in state:
-                                state[k0] = []
-                            while len(state[k0]) <= k1:
-                                state[k0].append({})
-                            if not isinstance(state[k0][k1], dict):
-                                state[k0][k1] = {}
-                            state[k0][k1][k2] = value
-                    elif kind == 2:
+                    elif kind in (1, 2):
                         keys = wrapper.get("k", [])
                         value = wrapper.get("v")
                         if len(keys) == 1:
