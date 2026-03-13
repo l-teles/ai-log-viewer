@@ -208,6 +208,89 @@ def test_discover_empty_dir(tmp_path: Path) -> None:
     assert sessions == []
 
 
+def test_jsonl_patch_reconstruction(tmp_path: Path) -> None:
+    """JSONL kind 1/2 patches reconstruct the full session state."""
+    ws_dir = tmp_path / "workspaceStorage" / "patchhash"
+    chat_dir = ws_dir / "chatSessions"
+    chat_dir.mkdir(parents=True)
+    (ws_dir / "workspace.json").write_text(
+        json.dumps({"folder": "file:///tmp/proj"})
+    )
+
+    # kind 0: initial snapshot with one request
+    session = _make_session(
+        session_id="cccccccc-dddd-eeee-ffff-000000000000",
+        custom_title="Initial title",
+    )
+    lines = [json.dumps({"kind": 0, "v": session})]
+    # kind 1: update top-level key (customTitle)
+    lines.append(json.dumps({"kind": 1, "k": ["customTitle"], "v": "Patched title"}))
+    # kind 2: update nested key (requests[0].isCanceled)
+    lines.append(json.dumps({"kind": 2, "k": ["requests", 0, "isCanceled"], "v": True}))
+
+    jsonl_path = chat_dir / "cccccccc-dddd-eeee-ffff-000000000000.jsonl"
+    jsonl_path.write_text("\n".join(lines) + "\n")
+
+    sessions = discover_sessions(tmp_path)
+    assert len(sessions) == 1
+    assert sessions[0]["summary"] == "Patched title"
+
+    events = parse_events(jsonl_path)
+    assert len(events) >= 2  # meta + request(s)
+    assert events[0]["sessionId"] == "cccccccc-dddd-eeee-ffff-000000000000"
+
+
+def test_jsonl_patch_two_level_dict_key(tmp_path: Path) -> None:
+    """JSONL kind 1 with a 2-level dict key path works."""
+    ws_dir = tmp_path / "workspaceStorage" / "dicthash"
+    chat_dir = ws_dir / "chatSessions"
+    chat_dir.mkdir(parents=True)
+    (ws_dir / "workspace.json").write_text(
+        json.dumps({"folder": "file:///tmp/proj"})
+    )
+
+    session = _make_session(
+        session_id="dddddddd-eeee-ffff-0000-111111111111",
+    )
+    lines = [
+        json.dumps({"kind": 0, "v": session}),
+        # Add hasPendingEdits via a 1-key patch
+        json.dumps({"kind": 1, "k": ["hasPendingEdits"], "v": True}),
+    ]
+    jsonl_path = chat_dir / "dddddddd-eeee-ffff-0000-111111111111.jsonl"
+    jsonl_path.write_text("\n".join(lines) + "\n")
+
+    sessions = discover_sessions(tmp_path)
+    assert len(sessions) == 1
+    assert sessions[0].get("has_pending_edits") is True
+
+
+def test_jsonl_malformed_patch_ignored(tmp_path: Path) -> None:
+    """Malformed JSONL patches don't crash the parser."""
+    ws_dir = tmp_path / "workspaceStorage" / "badhash"
+    chat_dir = ws_dir / "chatSessions"
+    chat_dir.mkdir(parents=True)
+    (ws_dir / "workspace.json").write_text(
+        json.dumps({"folder": "file:///tmp/proj"})
+    )
+
+    session = _make_session(
+        session_id="eeeeeeee-ffff-0000-1111-222222222222",
+    )
+    lines = [
+        json.dumps({"kind": 0, "v": session}),
+        "not valid json",
+        json.dumps({"kind": 1, "k": [], "v": "empty keys"}),
+        json.dumps({"kind": 99, "k": ["x"], "v": "unknown kind"}),
+    ]
+    jsonl_path = chat_dir / "eeeeeeee-ffff-0000-1111-222222222222.jsonl"
+    jsonl_path.write_text("\n".join(lines) + "\n")
+
+    # Should not crash, should still discover the session
+    sessions = discover_sessions(tmp_path)
+    assert len(sessions) == 1
+
+
 # ---------------------------------------------------------------------------
 # parse_events
 # ---------------------------------------------------------------------------
