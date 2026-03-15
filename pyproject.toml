@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ai-log-viewer"
+name = "ai-control-plane"
 dynamic = ["version"]
 description = "AI Control Plane — a local web UI for browsing AI agent session logs and tool configurations (GitHub Copilot, Claude Code, VS Code Chat)."
 readme = "README.md"
@@ -46,6 +46,7 @@ Repository = "https://github.com/l-teles/ai-log-viewer"
 Issues = "https://github.com/l-teles/ai-log-viewer/issues"
 
 [project.scripts]
+ai-control-plane = "ai_log_viewer.__main__:main"
 ai-log-viewer = "ai_log_viewer.__main__:main"
 
 # ---------------------------------------------------------------------------

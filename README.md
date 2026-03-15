@@ -138,17 +138,17 @@ pip install .
 ### Install from PyPI
 
 ```bash
-pip install ai-log-viewer
+pip install ai-control-plane
 ```
 
 ### Run
 
 ```bash
 # Auto-detect default directories for all sources
-ai-log-viewer
+ai-control-plane
 
 # Specify directories explicitly
-ai-log-viewer --copilot-dir ~/.copilot/session-state/ --claude-dir ~/.claude/projects/ --vscode-dir "~/Library/Application Support/Code/User/"
+ai-control-plane --copilot-dir ~/.copilot/session-state/ --claude-dir ~/.claude/projects/ --vscode-dir "~/Library/Application Support/Code/User/"
 
 # Or use the module directly
 python -m ai_log_viewer
@@ -167,8 +167,8 @@ Then open **http://127.0.0.1:5000** in your browser.
 ### Options
 
 ```
-usage: ai-log-viewer [-h] [--copilot-dir DIR] [--claude-dir DIR]
-                          [--vscode-dir DIR] [-p PORT] [--host HOST]
+usage: ai-control-plane [-h] [--copilot-dir DIR] [--claude-dir DIR]
+                             [--vscode-dir DIR] [-p PORT] [--host HOST]
                           [--debug] [-V] [log_dir]
 
 positional arguments:

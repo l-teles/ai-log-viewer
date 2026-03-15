@@ -17,7 +17,7 @@ from .vscode_parser import discover_sessions as vscode_discover
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        prog="ai-log-viewer",
+        prog="ai-control-plane",
         description="Browse AI agent session logs (GitHub Copilot, Claude Code, and VS Code Chat) in a local web UI.",
     )
     parser.add_argument(
