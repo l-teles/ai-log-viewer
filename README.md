@@ -131,7 +131,7 @@ those raw files into a readable, interactive dashboard so you can review session
 
 ```bash
 git clone https://github.com/l-teles/ai-control-plane.git
-cd ai-ctrl-plane
+cd ai-control-plane
 pip install .
 ```
 
