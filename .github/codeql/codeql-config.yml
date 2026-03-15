@@ -1,0 +1,6 @@
+paths:
+  - src/
+  - tests/
+
+paths-ignore:
+  - utils/
