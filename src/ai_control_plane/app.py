@@ -61,6 +61,14 @@ def _validate_backup_hash(backup_hash: str) -> None:
         abort(400, description="Invalid backup hash format")
 
 
+def _safe_copilot_dir(base: Path, session_id: str) -> Path:
+    """Build and validate a Copilot session path, preventing traversal."""
+    resolved = (base / session_id).resolve()
+    if not str(resolved).startswith(str(base.resolve())):
+        abort(403)
+    return resolved
+
+
 # ---------------------------------------------------------------------------
 # Markdown rendering
 # ---------------------------------------------------------------------------
@@ -316,7 +324,7 @@ def create_app(
             conversation = claude_parser.build_conversation(conv_events)
             stats = claude_parser.compute_stats(events)
             ws = claude_parser.extract_workspace(events)
-            snapshots = {}
+            snapshots: dict = {}
         elif source == "vscode":
             session_file = Path(session_info["path"])
             events = vscode_parser.parse_events(session_file)
@@ -325,7 +333,7 @@ def create_app(
             ws = vscode_parser.extract_workspace(events)
             snapshots = {}
         else:
-            session_dir = copilot_path / session_id
+            session_dir = _safe_copilot_dir(copilot_path, session_id)
             if not session_dir.is_dir():
                 abort(404)
             ws = parse_workspace(session_dir)
@@ -436,9 +444,7 @@ def create_app(
             for srv in configs[source].get("mcp_servers", []):
                 server_sources.setdefault(srv["name"], []).append(source)
         shared_servers = [
-            {"name": name, "sources": sources}
-            for name, sources in sorted(server_sources.items())
-            if len(sources) > 1
+            {"name": name, "sources": sources} for name, sources in sorted(server_sources.items()) if len(sources) > 1
         ]
         return render_template("tools.html", configs=configs, shared_servers=shared_servers)
 
@@ -446,20 +452,32 @@ def create_app(
     _CLAUDE_SETTINGS_META: dict[str, dict] = {
         "apiKeyHelper": {"desc": "Custom script to generate an auth value for API requests", "type": "string"},
         "autoMemoryDirectory": {"desc": "Custom directory for auto memory storage", "type": "path"},
-        "cleanupPeriodDays": {"desc": "Days before inactive sessions are deleted at startup (default: 30)", "type": "number"},
+        "cleanupPeriodDays": {"desc": "Days before inactive sessions are deleted (default: 30)", "type": "number"},
         "companyAnnouncements": {"desc": "Announcements displayed to users at startup", "type": "array"},
         "env": {"desc": "Environment variables applied to every session", "type": "object"},
         "attribution": {"desc": "Customize attribution for git commits and pull requests", "type": "object"},
-        "includeCoAuthoredBy": {"desc": "Include co-authored-by Claude byline in commits (deprecated, use attribution)", "type": "bool"},
-        "includeGitInstructions": {"desc": "Include built-in commit and PR workflow instructions in system prompt", "type": "bool"},
+        "includeCoAuthoredBy": {
+            "desc": "Include Claude co-author byline (deprecated, use attribution)",
+            "type": "bool",
+        },
+        "includeGitInstructions": {"desc": "Include commit/PR workflow instructions in system prompt", "type": "bool"},
         "permissions": {"desc": "Permission rules: allow, ask, and deny lists for tool access", "type": "object"},
         "hooks": {"desc": "Custom commands that run at lifecycle events", "type": "object"},
         "disableAllHooks": {"desc": "Disable all hooks and custom status line", "type": "bool"},
         "allowManagedHooksOnly": {"desc": "Only allow managed hooks (managed settings only)", "type": "bool"},
         "allowedHttpHookUrls": {"desc": "URL patterns that HTTP hooks may target", "type": "array"},
-        "httpHookAllowedEnvVars": {"desc": "Environment variables HTTP hooks may interpolate into headers", "type": "array"},
-        "allowManagedPermissionRulesOnly": {"desc": "Only managed permission rules apply (managed settings only)", "type": "bool"},
-        "allowManagedMcpServersOnly": {"desc": "Only admin-defined MCP server allowlist applies (managed settings only)", "type": "bool"},
+        "httpHookAllowedEnvVars": {
+            "desc": "Environment variables HTTP hooks may interpolate into headers",
+            "type": "array",
+        },
+        "allowManagedPermissionRulesOnly": {
+            "desc": "Only managed permission rules apply (managed settings only)",
+            "type": "bool",
+        },
+        "allowManagedMcpServersOnly": {
+            "desc": "Only admin-defined MCP server allowlist applies (managed settings only)",
+            "type": "bool",
+        },
         "model": {"desc": "Override the default model for Claude Code", "type": "string"},
         "availableModels": {"desc": "Restrict which models users can select", "type": "array"},
         "modelOverrides": {"desc": "Map Anthropic model IDs to provider-specific model IDs", "type": "object"},
@@ -476,9 +494,15 @@ def create_app(
         "disabledMcpjsonServers": {"desc": "Specific MCP servers from .mcp.json to reject", "type": "array"},
         "allowedMcpServers": {"desc": "Allowlist of MCP servers users can configure (managed only)", "type": "array"},
         "deniedMcpServers": {"desc": "Denylist of explicitly blocked MCP servers (managed only)", "type": "array"},
-        "strictKnownMarketplaces": {"desc": "Allowlist of plugin marketplaces users can add (managed only)", "type": "array"},
+        "strictKnownMarketplaces": {
+            "desc": "Allowlist of plugin marketplaces users can add (managed only)",
+            "type": "array",
+        },
         "blockedMarketplaces": {"desc": "Blocklist of marketplace sources (managed only)", "type": "array"},
-        "pluginTrustMessage": {"desc": "Custom message appended to plugin trust warning (managed only)", "type": "string"},
+        "pluginTrustMessage": {
+            "desc": "Custom message appended to plugin trust warning (managed only)",
+            "type": "string",
+        },
         "awsAuthRefresh": {"desc": "Custom script to refresh AWS credentials", "type": "string"},
         "awsCredentialExport": {"desc": "Custom script that outputs JSON with AWS credentials", "type": "string"},
         "alwaysThinkingEnabled": {"desc": "Enable extended thinking by default for all sessions", "type": "bool"},
@@ -494,12 +518,21 @@ def create_app(
         "fastModePerSessionOptIn": {"desc": "Require per-session opt-in for fast mode", "type": "bool"},
         "teammateMode": {"desc": "How agent team teammates display (auto/in-process/tmux)", "type": "string"},
         "feedbackSurveyRate": {"desc": "Probability (0-1) that session quality survey appears", "type": "number"},
-        "worktree.symlinkDirectories": {"desc": "Directories to symlink into worktrees to save disk space", "type": "array"},
-        "worktree.sparsePaths": {"desc": "Directories to check out via git sparse-checkout in worktrees", "type": "array"},
+        "worktree.symlinkDirectories": {
+            "desc": "Directories to symlink into worktrees to save disk space",
+            "type": "array",
+        },
+        "worktree.sparsePaths": {
+            "desc": "Directories to check out via git sparse-checkout in worktrees",
+            "type": "array",
+        },
         "sandbox.enabled": {"desc": "Enable bash sandboxing", "type": "bool"},
         "sandbox.autoAllowBashIfSandboxed": {"desc": "Auto-approve bash commands when sandboxed", "type": "bool"},
         "sandbox.excludedCommands": {"desc": "Commands that run outside the sandbox", "type": "array"},
-        "sandbox.allowUnsandboxedCommands": {"desc": "Allow commands to bypass sandbox via dangerouslyDisableSandbox", "type": "bool"},
+        "sandbox.allowUnsandboxedCommands": {
+            "desc": "Allow commands to bypass sandbox via dangerouslyDisableSandbox",
+            "type": "bool",
+        },
         "sandbox.filesystem.allowWrite": {"desc": "Additional writable paths for sandboxed commands", "type": "array"},
         "sandbox.filesystem.denyWrite": {"desc": "Paths where sandboxed commands cannot write", "type": "array"},
         "sandbox.filesystem.denyRead": {"desc": "Paths where sandboxed commands cannot read", "type": "array"},
@@ -507,11 +540,20 @@ def create_app(
         "sandbox.network.allowAllUnixSockets": {"desc": "Allow all Unix socket connections in sandbox", "type": "bool"},
         "sandbox.network.allowLocalBinding": {"desc": "Allow binding to localhost ports (macOS only)", "type": "bool"},
         "sandbox.network.allowedDomains": {"desc": "Domains allowed for outbound network traffic", "type": "array"},
-        "sandbox.network.allowManagedDomainsOnly": {"desc": "Only managed network domain allowlists apply", "type": "bool"},
+        "sandbox.network.allowManagedDomainsOnly": {
+            "desc": "Only managed network domain allowlists apply",
+            "type": "bool",
+        },
         "sandbox.network.httpProxyPort": {"desc": "HTTP proxy port for sandbox", "type": "number"},
         "sandbox.network.socksProxyPort": {"desc": "SOCKS5 proxy port for sandbox", "type": "number"},
-        "sandbox.enableWeakerNestedSandbox": {"desc": "Weaker sandbox for unprivileged Docker (reduces security)", "type": "bool"},
-        "sandbox.enableWeakerNetworkIsolation": {"desc": "Allow TLS trust service access in sandbox (reduces security)", "type": "bool"},
+        "sandbox.enableWeakerNestedSandbox": {
+            "desc": "Weaker sandbox for unprivileged Docker (reduces security)",
+            "type": "bool",
+        },
+        "sandbox.enableWeakerNetworkIsolation": {
+            "desc": "Allow TLS trust service access in sandbox (reduces security)",
+            "type": "bool",
+        },
     }
 
     def _parse_claude_settings(settings: dict) -> list[dict]:
@@ -519,12 +561,14 @@ def create_app(
         result = []
         for key, value in sorted(settings.items()):
             meta = _CLAUDE_SETTINGS_META.get(key, {})
-            result.append({
-                "key": key,
-                "value": value,
-                "desc": meta.get("desc", ""),
-                "type": meta.get("type", "unknown"),
-            })
+            result.append(
+                {
+                    "key": key,
+                    "value": value,
+                    "desc": meta.get("desc", ""),
+                    "type": meta.get("type", "unknown"),
+                }
+            )
         return result
 
     @app.route("/tools/<tool>")
@@ -574,7 +618,7 @@ def create_app(
         elif source == "vscode":
             events = vscode_parser.parse_events(Path(session_info["path"]))
         else:
-            session_dir = copilot_path / session_id
+            session_dir = _safe_copilot_dir(copilot_path, session_id)
             if not session_dir.is_dir():
                 abort(404)
             events = copilot_parse_events(session_dir)
@@ -585,12 +629,10 @@ def create_app(
     def api_backup(session_id: str, backup_hash: str):
         _validate_session_id(session_id)
         _validate_backup_hash(backup_hash)
-        backup_file = copilot_path / session_id / "rewind-snapshots" / "backups" / backup_hash
-        # Resolve and verify the path stays within the log directory.
+        session_dir = _safe_copilot_dir(copilot_path, session_id)
+        backup_file = session_dir / "rewind-snapshots" / "backups" / backup_hash
         resolved = backup_file.resolve()
-        try:
-            resolved.relative_to(copilot_path)
-        except ValueError:
+        if not str(resolved).startswith(str(copilot_path.resolve())):
             abort(403)
         if not resolved.is_file():
             abort(404)

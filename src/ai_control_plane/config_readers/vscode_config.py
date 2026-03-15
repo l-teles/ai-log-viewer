@@ -94,7 +94,7 @@ def read_vscode_config(vscode_user_dir: Path | None = None) -> dict:
             "args": cfg.get("args", []),
             "url": cfg.get("url", ""),
         }
-        for name, cfg in mask_dict(servers_dict).items()
+        for name, cfg in mask_dict(servers_dict).items()  # type: ignore[union-attr]
         if isinstance(cfg, dict)
     ]
 

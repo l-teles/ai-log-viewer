@@ -231,7 +231,7 @@ def read_claude_config(claude_home: Path | None = None) -> dict:
             "args": cfg.get("args", []),
             "url": cfg.get("url", ""),
         }
-        for name, cfg in mask_dict(servers_dict).items()
+        for name, cfg in mask_dict(servers_dict).items()  # type: ignore[union-attr]
         if isinstance(cfg, dict)
     ]
 

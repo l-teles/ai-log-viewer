@@ -1,4 +1,5 @@
 """Take screenshots for README using Playwright."""
+
 import subprocess
 import sys
 import time
@@ -55,7 +56,7 @@ def main():
     from playwright.sync_api import sync_playwright
 
     # Start the Flask app
-    proc = subprocess.Popen(
+    proc = subprocess.Popen(  # noqa: S603
         [sys.executable, "-m", "ai_control_plane", "--port", "5099"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

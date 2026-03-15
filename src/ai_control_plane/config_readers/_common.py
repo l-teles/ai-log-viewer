@@ -76,9 +76,11 @@ def sanitize_url(url: str) -> str:
     """Return the URL only if it uses a safe scheme, otherwise empty string."""
     if not url or not isinstance(url, str):
         return ""
-    scheme = url.split(":", 1)[0].lower().strip()
-    if scheme in _SAFE_URL_SCHEMES:
-        return url
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme in _SAFE_URL_SCHEMES:
+        return parsed.geturl()
     return ""
 
 
