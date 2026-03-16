@@ -358,8 +358,7 @@ def read_claude_projects(claude_home: Path | None = None) -> dict:
 
         meta = project_meta.get(real_path, {}) if real_path else {}
         masked = mask_dict(meta) if meta else {}
-        assert isinstance(masked, dict)
-        meta = masked
+        meta = masked if isinstance(masked, dict) else {}
 
         # Count JSONL session files
         jsonl_files = list(d.glob("*.jsonl"))

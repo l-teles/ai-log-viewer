@@ -793,7 +793,7 @@ def create_app(
         from .config_readers.copilot_config import _default_copilot_home
         from .config_readers.vscode_config import _default_vscode_user_dir
 
-        db_size = 0
+        db_size = None
         db_file = cache_path / "cache.db"
         if db_file.exists():
             db_size = db_file.stat().st_size

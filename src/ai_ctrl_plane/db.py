@@ -136,10 +136,15 @@ class CacheDB:
                 for tbl in ("sessions", "projects", "project_memory", "tool_configs", "cache_meta"):
                     self._conn.execute(f"DROP TABLE IF EXISTS {tbl}")  # noqa: S608
             self._conn.executescript(_DDL)
+            self._conn.execute(
+                "INSERT OR REPLACE INTO cache_meta (key, value) VALUES ('version', ?)",
+                (_SCHEMA_VERSION,),
+            )
             self._conn.commit()
 
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
     # -- Meta helpers -------------------------------------------------------
 
@@ -198,7 +203,7 @@ class CacheDB:
                         s.get("id", ""),
                         s.get("summary", ""),
                         s.get("created_at", ""),
-                        s.get("cwd", ""),
+                        s.get("cwd", "").replace("\\", "/"),
                         s.get("model", ""),
                         s.get("input_tokens", 0),
                         s.get("output_tokens", 0),
@@ -223,7 +228,7 @@ class CacheDB:
                 [
                     (
                         p["encoded_name"],
-                        p.get("path", ""),
+                        p.get("path", "").replace("\\", "/"),
                         p.get("name", ""),
                         p.get("session_count", 0),
                         p.get("memory_file_count", 0),
@@ -336,7 +341,7 @@ class CacheDB:
                 "SELECT COALESCE(SUM(estimated_cost), 0) AS aggregate_cost FROM sessions"
             ).fetchone()
             session_row = self._conn.execute(
-                "SELECT COUNT(*) AS total_sessions FROM sessions WHERE source = 'claude'"
+                "SELECT COUNT(*) AS total_sessions FROM sessions"
             ).fetchone()
         return {
             "total_projects": row["total_projects"],
@@ -347,6 +352,7 @@ class CacheDB:
 
     def get_project_sessions(self, project_path: str) -> list[dict]:
         """Get sessions whose cwd starts with the given project path."""
+        project_path = project_path.replace("\\", "/")
         escaped = _escape_like(project_path)
         with self._lock:
             rows = self._conn.execute(
@@ -358,6 +364,7 @@ class CacheDB:
 
     def get_project_cost(self, project_path: str) -> dict:
         """Get aggregated token usage and cost for sessions in a project."""
+        project_path = project_path.replace("\\", "/")
         escaped = _escape_like(project_path)
         with self._lock:
             row = self._conn.execute(
