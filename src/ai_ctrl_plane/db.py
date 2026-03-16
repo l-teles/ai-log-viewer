@@ -76,6 +76,11 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _escape_like(value: str) -> str:
+    """Escape ``%`` and ``_`` for use in a LIKE pattern with ``ESCAPE '\\'``."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _connect(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -270,9 +275,15 @@ class CacheDB:
                 "(SELECT COUNT(*) FROM project_memory pm "
                 "WHERE pm.project_encoded_name = p.encoded_name) AS memory_count, "
                 "(SELECT COALESCE(SUM(s.estimated_cost), 0) FROM sessions s "
-                "WHERE p.path != '' AND s.cwd LIKE p.path || '%') AS estimated_cost, "
+                "WHERE p.path != '' AND ("
+                "s.cwd = p.path OR s.cwd LIKE REPLACE(REPLACE(REPLACE("
+                "p.path, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '/%' ESCAPE '\\'"
+                ")) AS estimated_cost, "
                 "(SELECT COUNT(*) FROM sessions s "
-                "WHERE p.path != '' AND s.cwd LIKE p.path || '%') AS real_session_count "
+                "WHERE p.path != '' AND ("
+                "s.cwd = p.path OR s.cwd LIKE REPLACE(REPLACE(REPLACE("
+                "p.path, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '/%' ESCAPE '\\'"
+                ")) AS real_session_count "
                 "FROM projects p ORDER BY name"
             ).fetchall()
         result = []
@@ -336,15 +347,18 @@ class CacheDB:
 
     def get_project_sessions(self, project_path: str) -> list[dict]:
         """Get sessions whose cwd starts with the given project path."""
+        escaped = _escape_like(project_path)
         with self._lock:
             rows = self._conn.execute(
-                "SELECT raw_json FROM sessions WHERE cwd LIKE ? ORDER BY created DESC",
-                (project_path + "%",),
+                "SELECT raw_json FROM sessions "
+                "WHERE (cwd = ? OR cwd LIKE ? ESCAPE '\\') ORDER BY created DESC",
+                (project_path, escaped + "/%"),
             ).fetchall()
         return [json.loads(r["raw_json"]) for r in rows]
 
     def get_project_cost(self, project_path: str) -> dict:
         """Get aggregated token usage and cost for sessions in a project."""
+        escaped = _escape_like(project_path)
         with self._lock:
             row = self._conn.execute(
                 "SELECT COALESCE(SUM(input_tokens), 0) AS input_tokens, "
@@ -352,8 +366,8 @@ class CacheDB:
                 "COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens, "
                 "COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens, "
                 "COALESCE(SUM(estimated_cost), 0) AS estimated_cost "
-                "FROM sessions WHERE cwd LIKE ?",
-                (project_path + "%",),
+                "FROM sessions WHERE (cwd = ? OR cwd LIKE ? ESCAPE '\\')",
+                (project_path, escaped + "/%"),
             ).fetchone()
         return (
             dict(row)
@@ -451,6 +465,8 @@ def start_background_build(
     vscode_path: Path,
 ) -> threading.Thread:
     """Start cache build in a daemon thread. Returns the thread."""
+    # Set status synchronously to prevent double-start races
+    cache.set_meta("status", "building")
     t = threading.Thread(
         target=build_cache,
         args=(cache, copilot_path, claude_path, vscode_path),

@@ -208,6 +208,15 @@ def create_app(
     db = CacheDB(cache_path / "cache.db")
     app.config["cache_db"] = db
 
+    # Close DB connection on app teardown
+    @app.teardown_appcontext
+    def _close_db(exc: BaseException | None) -> None:  # noqa: ARG001
+        pass  # Connection is reused; actual close happens at process exit
+
+    import atexit
+
+    atexit.register(db.close)
+
     # Start background cache build if not already ready
     if db.status != "ready":
         start_background_build(db, copilot_path, claude_path, vscode_path)
