@@ -143,7 +143,7 @@ def _read_session_json(path: Path) -> dict | None:
         else:
             with open(path, encoding="utf-8") as f:
                 return json.load(f)
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
         return None
 
 
@@ -194,7 +194,7 @@ def discover_sessions(base: Path) -> list[dict]:
                         cwd = _folder_uri_to_path(folder)
                         # Derive repo from last path segment
                         repo = Path(cwd).name if cwd else ""
-                except (json.JSONDecodeError, OSError):
+                except (json.JSONDecodeError, OSError, UnicodeDecodeError):
                     pass
 
             for session_file in sorted(list(chat_dir.glob("*.json")) + list(chat_dir.glob("*.jsonl"))):

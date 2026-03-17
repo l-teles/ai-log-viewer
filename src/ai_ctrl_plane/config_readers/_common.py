@@ -146,7 +146,7 @@ def parse_yaml_frontmatter(path: Path) -> dict | None:
                     val = val[1:-1]
                 data[key] = val
         return data or None
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return None
 
 
@@ -163,7 +163,7 @@ def _extract_skill_body(path: Path) -> str:
         if end == -1:
             return content
         return content[end + 4 :].strip()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return ""
 
 
