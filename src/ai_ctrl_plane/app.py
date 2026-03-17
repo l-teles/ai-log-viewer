@@ -708,6 +708,7 @@ def create_app(
                 "%LOCALAPPDATA%\\claude\\settings.json",
                 "%USERPROFILE%\\.claude\\settings.json (alternate)",
                 "%LOCALAPPDATA%\\claude\\policy-limits.json",
+                "%USERPROFILE%\\.claude\\policy-limits.json (alternate)",
                 "%LOCALAPPDATA%\\claude\\plugins\\",
                 "%USERPROFILE%\\.claude\\plugins\\ (alternate)",
                 "%LOCALAPPDATA%\\claude\\skills\\",

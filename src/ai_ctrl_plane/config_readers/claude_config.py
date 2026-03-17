@@ -18,8 +18,9 @@ from ._common import (
 def _default_claude_home() -> Path:
     """Return the platform-default Claude home directory.
 
-    On Windows, prefers ``%LOCALAPPDATA%\\claude`` (standard installer) and falls
-    back to ``%USERPROFILE%\\.claude`` when the primary path does not exist.
+    On Windows, prefers ``%LOCALAPPDATA%\\claude`` (standard installer).  Falls
+    back to ``%USERPROFILE%\\.claude`` only when that directory exists; otherwise
+    returns the primary path as the reported default even if it is absent.
     """
     if sys.platform == "win32":
         import os
@@ -38,8 +39,9 @@ def _default_claude_home() -> Path:
 def _default_global_config_path() -> Path:
     """Return the platform-default global Claude config path.
 
-    On Windows, prefers ``%LOCALAPPDATA%\\claude\\.claude.json`` and falls back
-    to ``%USERPROFILE%\\.claude.json`` when the primary file does not exist.
+    On Windows, prefers ``%LOCALAPPDATA%\\claude\\.claude.json``.  Falls back to
+    ``%USERPROFILE%\\.claude.json`` only when that file exists; otherwise returns
+    the primary path as the reported default even if it is absent.
     """
     if sys.platform == "win32":
         import os

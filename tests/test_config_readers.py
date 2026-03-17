@@ -611,6 +611,46 @@ def test_read_claude_desktop_config_reads_cowork_plugins(tmp_path):
 # ---------------------------------------------------------------------------
 
 
+def test_default_global_config_path_prefers_localappdata(tmp_path, monkeypatch):
+    """On Windows, _default_global_config_path() prefers %LOCALAPPDATA%\\claude\\.claude.json when it exists."""
+    from ai_ctrl_plane.config_readers.claude_config import _default_global_config_path
+
+    localappdata_dir = tmp_path / "Local"
+    primary = localappdata_dir / "claude" / ".claude.json"
+    primary.parent.mkdir(parents=True)
+    primary.touch()
+    userprofile_dir = tmp_path / "Users" / "user"
+    userprofile_dir.mkdir(parents=True)
+
+    monkeypatch.setattr("sys.platform", "win32")
+    monkeypatch.setenv("LOCALAPPDATA", str(localappdata_dir))
+    monkeypatch.setattr("pathlib.Path.home", lambda: userprofile_dir)
+
+    result = _default_global_config_path()
+    assert result == primary
+
+
+def test_default_global_config_path_falls_back_to_userprofile(tmp_path, monkeypatch):
+    """On Windows, _default_global_config_path() falls back to %USERPROFILE%\\.claude.json
+    when %LOCALAPPDATA%\\claude\\.claude.json does not exist."""
+    from ai_ctrl_plane.config_readers.claude_config import _default_global_config_path
+
+    localappdata_dir = tmp_path / "Local"
+    localappdata_dir.mkdir(parents=True)
+    # primary (%LOCALAPPDATA%\claude\.claude.json) does NOT exist
+    userprofile_dir = tmp_path / "Users" / "user"
+    fallback = userprofile_dir / ".claude.json"
+    fallback.parent.mkdir(parents=True)
+    fallback.touch()
+
+    monkeypatch.setattr("sys.platform", "win32")
+    monkeypatch.setenv("LOCALAPPDATA", str(localappdata_dir))
+    monkeypatch.setattr("pathlib.Path.home", lambda: userprofile_dir)
+
+    result = _default_global_config_path()
+    assert result == fallback
+
+
 def test_default_claude_home_prefers_localappdata(tmp_path, monkeypatch):
     """On Windows, _default_claude_home() prefers %LOCALAPPDATA%\\claude when it exists."""
     from ai_ctrl_plane.config_readers.claude_config import _default_claude_home
@@ -630,7 +670,8 @@ def test_default_claude_home_prefers_localappdata(tmp_path, monkeypatch):
 
 
 def test_default_claude_home_falls_back_to_userprofile(tmp_path, monkeypatch):
-    """On Windows, _default_claude_home() falls back to %USERPROFILE%\\.claude when LOCALAPPDATA dir is absent."""
+    """On Windows, _default_claude_home() falls back to %USERPROFILE%\\.claude
+    when %LOCALAPPDATA%\\claude does not exist."""
     from ai_ctrl_plane.config_readers.claude_config import _default_claude_home
 
     localappdata_dir = tmp_path / "Local"
@@ -667,7 +708,8 @@ def test_default_copilot_home_prefers_localappdata(tmp_path, monkeypatch):
 
 
 def test_default_copilot_home_falls_back_to_userprofile(tmp_path, monkeypatch):
-    """On Windows, _default_copilot_home() falls back to %USERPROFILE%\\.copilot when LOCALAPPDATA dir is absent."""
+    """On Windows, _default_copilot_home() falls back to %USERPROFILE%\\.copilot
+    when %LOCALAPPDATA%\\github-copilot does not exist."""
     from ai_ctrl_plane.config_readers.copilot_config import _default_copilot_home
 
     localappdata_dir = tmp_path / "Local"
