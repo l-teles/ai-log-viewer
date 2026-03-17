@@ -9,13 +9,23 @@ from ._common import mask_dict, read_skills, safe_read_json
 
 
 def _default_copilot_home() -> Path:
-    """Return the platform-default Copilot home directory."""
+    """Return the platform-default Copilot home directory.
+
+    On Windows, prefers ``%LOCALAPPDATA%\\github-copilot`` (standard installer).
+    Falls back to ``%USERPROFILE%\\.copilot`` only when that directory exists;
+    otherwise returns the primary path as the reported default even if it is absent.
+    """
     if sys.platform == "win32":
         import os
 
         localappdata = os.environ.get("LOCALAPPDATA", "")
-        if localappdata:
-            return Path(localappdata) / "github-copilot"
+        primary = Path(localappdata) / "github-copilot" if localappdata else None
+        if primary and primary.is_dir():
+            return primary
+        fallback = Path.home() / ".copilot"
+        if fallback.is_dir():
+            return fallback
+        return primary if primary else fallback
     return Path.home() / ".copilot"
 
 
